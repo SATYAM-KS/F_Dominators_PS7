@@ -93,10 +93,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    return { error };
+    try {
+      // Get the current site URL to use as the redirect URL
+      const siteUrl = window.location.origin;
+      const redirectTo = `${siteUrl}/reset-password`;
+      
+      console.log('Sending password reset with redirect to:', redirectTo);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectTo,
+      });
+      
+      if (error) {
+        console.error('Password reset error:', error);
+      }
+      
+      return { error };
+    } catch (error) {
+      console.error('Exception in resetPassword:', error);
+      return { error };
+    }
   }
 
   async function updateProfile(updates: Partial<Profile>) {

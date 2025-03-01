@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { AlertCircle, Search, CheckCircle, XCircle, Clock, Filter } from 'lucide-react';
+import { AlertCircle, Search, CheckCircle, XCircle, Clock, Filter, MapPin, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -11,6 +11,7 @@ const ManageEmergencyRequests = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const initialStatus = queryParams.get('status') || 'all';
+  const requestId = queryParams.get('id');
   
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,20 @@ const ManageEmergencyRequests = () => {
   useEffect(() => {
     fetchRequests();
   }, [profile, statusFilter]);
+  
+  useEffect(() => {
+    // If there's a specific request ID in the URL, highlight it
+    if (requestId) {
+      const element = document.getElementById(`request-${requestId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+        element.classList.add('bg-red-50');
+        setTimeout(() => {
+          element.classList.remove('bg-red-50');
+        }, 3000);
+      }
+    }
+  }, [requestId, requests]);
   
   const fetchRequests = async () => {
     if (!profile || !profile.is_admin) return;
@@ -121,6 +136,16 @@ const ManageEmergencyRequests = () => {
     }
   };
   
+  const openGoogleMaps = (request: any) => {
+    if (request.latitude && request.longitude) {
+      const url = `https://www.google.com/maps?q=${request.latitude},${request.longitude}`;
+      window.open(url, '_blank');
+    } else if (request.hospital) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(request.hospital)}`;
+      window.open(url, '_blank');
+    }
+  };
+  
   const filteredRequests = requests.filter(request => {
     const patientName = request.patient_name.toLowerCase();
     const hospital = request.hospital.toLowerCase();
@@ -204,7 +229,7 @@ const ManageEmergencyRequests = () => {
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
             {filteredRequests.map((request) => (
-              <li key={request.id}>
+              <li key={request.id} id={`request-${request.id}`} className="transition-colors duration-300">
                 <div className="px-4 py-4 sm:px-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
@@ -230,11 +255,16 @@ const ManageEmergencyRequests = () => {
                   <div className="mt-2 sm:flex sm:justify-between">
                     <div className="sm:flex">
                       <div className="flex items-center text-sm text-gray-500">
-                        <p>
-                          Hospital: {request.hospital}
+                        <MapPin 
+                          className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400 cursor-pointer" 
+                          onClick={() => openGoogleMaps(request)}
+                        />
+                        <p className="cursor-pointer hover:text-red-600" onClick={() => openGoogleMaps(request)}>
+                          {request.location_name || request.hospital}
                         </p>
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
+                        <Phone className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                         <p>
                           Contact: {request.contact_number}
                         </p>

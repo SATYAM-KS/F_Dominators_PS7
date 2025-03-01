@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Droplet, AlertCircle, Calendar, User, Activity } from 'lucide-react';
+import { Droplet, AlertCircle, Calendar, User, Activity, MessageCircle, Award } from 'lucide-react';
 import { format } from 'date-fns';
+import RewardBadge from '../../components/RewardBadge';
 
 const Dashboard = () => {
   const { profile } = useAuth();
   const [donations, setDonations] = useState<any[]>([]);
   const [emergencies, setEmergencies] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<any>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [stats, setStats] = useState({
     totalDonations: 0,
     totalUnits: 0,
@@ -54,6 +57,36 @@ const Dashboard = () => {
 
         if (emergenciesError) throw emergenciesError;
         setEmergencies(emergenciesData || []);
+        
+        // Fetch user's rewards
+        const { data: rewardsData, error: rewardsError } = await supabase
+          .from('rewards')
+          .select('*')
+          .eq('user_id', profile.id)
+          .single();
+          
+        if (!rewardsError) {
+          setRewards(rewardsData);
+        }
+        
+        // Fetch unread messages count
+        const { data: participantsData } = await supabase
+          .from('chat_participants')
+          .select('chat_room_id')
+          .eq('user_id', profile.id);
+        
+        if (participantsData && participantsData.length > 0) {
+          const roomIds = participantsData.map(p => p.chat_room_id);
+          
+          const { count } = await supabase
+            .from('chat_messages')
+            .select('*', { count: 'exact', head: true })
+            .in('chat_room_id', roomIds)
+            .eq('read', false)
+            .neq('sender_id', profile.id);
+          
+          setUnreadMessages(count || 0);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -102,7 +135,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {/* Total Donations */}
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
@@ -160,6 +193,38 @@ const Dashboard = () => {
                   </dd>
                 </dl>
               </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Reward Status */}
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <Award className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Reward Status</dt>
+                  <dd>
+                    <div className="text-lg font-medium text-gray-900">
+                      {rewards ? (
+                        <RewardBadge level={rewards.level} points={rewards.points} />
+                      ) : (
+                        'Not available'
+                      )}
+                    </div>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gray-50 px-5 py-3">
+            <div className="text-sm">
+              <Link to="/rewards" className="font-medium text-red-600 hover:text-red-500">
+                View rewards
+              </Link>
             </div>
           </div>
         </div>
@@ -265,6 +330,80 @@ const Dashboard = () => {
             ) : (
               <div className="text-center py-6">
                 <p className="text-gray-500 text-sm">No emergency requests at the moment</p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Messages Preview */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+            <div className="flex items-center">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Messages</h3>
+              {unreadMessages > 0 && (
+                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  {unreadMessages} new
+                </span>
+              )}
+            </div>
+            <Link to="/messages" className="text-sm text-red-600 hover:text-red-500">
+              View all
+            </Link>
+          </div>
+          <div className="border-t border-gray-200 p-6 flex flex-col items-center justify-center text-center">
+            <MessageCircle className="h-12 w-12 text-gray-400 mb-2" />
+            <h3 className="text-sm font-medium text-gray-900">
+              {unreadMessages > 0 
+                ? `You have ${unreadMessages} unread message${unreadMessages > 1 ? 's' : ''}` 
+                : 'No unread messages'}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Connect with donors and recipients through our messaging system.
+            </p>
+            <Link
+              to="/messages"
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Go to Messages
+            </Link>
+          </div>
+        </div>
+        
+        {/* Rewards Preview */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Rewards</h3>
+            <Link to="/rewards" className="text-sm text-red-600 hover:text-red-500">
+              View details
+            </Link>
+          </div>
+          <div className="border-t border-gray-200 p-6">
+            {rewards ? (
+              <div className="text-center">
+                <Award className="h-12 w-12 text-red-600 mx-auto mb-2" />
+                <div className="mb-4">
+                  <RewardBadge level={rewards.level} points={rewards.points} size="lg" />
+                </div>
+                <p className="text-sm text-gray-500 mb-4">
+                  You've earned {rewards.points} points through your donations.
+                  {rewards.level !== 'Diamond' && ' Keep donating to reach the next level!'}
+                </p>
+                <Link
+                  to="/rewards"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  <Award className="h-4 w-4 mr-2" />
+                  View Rewards
+                </Link>
+              </div>
+            ) : (
+              <div className="text-center">
+                <Award className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                <h3 className="text-sm font-medium text-gray-900">No rewards yet</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Start donating blood to earn reward points and badges!
+                </p>
               </div>
             )}
           </div>

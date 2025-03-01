@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { AlertCircle, Plus, Calendar, MapPin, Phone, User, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import StartChatButton from '../../components/StartChatButton';
 
 const EmergencyRequests = () => {
   const { profile } = useAuth();
@@ -11,6 +12,9 @@ const EmergencyRequests = () => {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const requestId = queryParams.get('id');
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -20,7 +24,15 @@ const EmergencyRequests = () => {
         // Fetch all open emergency requests
         const { data: allRequests, error: allError } = await supabase
           .from('emergency_requests')
-          .select('*')
+          .select(`
+            *,
+            profiles:user_id (
+              id,
+              first_name,
+              last_name,
+              blood_type
+            )
+          `)
           .order('created_at', { ascending: false });
 
         if (allError) throw allError;
@@ -29,12 +41,32 @@ const EmergencyRequests = () => {
         // Fetch user's emergency requests
         const { data: userRequests, error: userError } = await supabase
           .from('emergency_requests')
-          .select('*')
+          .select(`
+            *,
+            profiles:user_id (
+              id,
+              first_name,
+              last_name,
+              blood_type
+            )
+          `)
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false });
 
         if (userError) throw userError;
         setMyRequests(userRequests || []);
+        
+        // If there's a specific request ID in the URL, highlight it
+        if (requestId) {
+          const element = document.getElementById(`request-${requestId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+            element.classList.add('bg-red-50');
+            setTimeout(() => {
+              element.classList.remove('bg-red-50');
+            }, 3000);
+          }
+        }
       } catch (error) {
         console.error('Error fetching emergency requests:', error);
       } finally {
@@ -43,7 +75,7 @@ const EmergencyRequests = () => {
     };
 
     fetchRequests();
-  }, [profile]);
+  }, [profile, requestId]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -88,6 +120,16 @@ const EmergencyRequests = () => {
             Low Urgency
           </span>
         );
+    }
+  };
+  
+  const openGoogleMaps = (request: any) => {
+    if (request.latitude && request.longitude) {
+      const url = `https://www.google.com/maps?q=${request.latitude},${request.longitude}`;
+      window.open(url, '_blank');
+    } else if (request.hospital) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(request.hospital)}`;
+      window.open(url, '_blank');
     }
   };
 
@@ -152,7 +194,7 @@ const EmergencyRequests = () => {
         {displayRequests.length > 0 ? (
           <ul className="divide-y divide-gray-200">
             {displayRequests.map((request) => (
-              <li key={request.id}>
+              <li key={request.id} id={`request-${request.id}`} className="transition-colors duration-300">
                 <div className="px-4 py-4 sm:px-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
@@ -184,9 +226,12 @@ const EmergencyRequests = () => {
                         </p>
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                        <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                        <p>
-                          {request.hospital}
+                        <MapPin 
+                          className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400 cursor-pointer" 
+                          onClick={() => openGoogleMaps(request)}
+                        />
+                        <p className="cursor-pointer hover:text-red-600" onClick={() => openGoogleMaps(request)}>
+                          {request.location_name || request.hospital}
                         </p>
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
@@ -206,6 +251,26 @@ const EmergencyRequests = () => {
                   {request.notes && (
                     <div className="mt-2 text-sm text-gray-500">
                       <p>{request.notes}</p>
+                    </div>
+                  )}
+                  
+                  {/* Requester info and chat button */}
+                  {request.profiles && request.user_id !== profile?.id && (
+                    <div className="mt-4 flex justify-between items-center">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center mr-2">
+                          <User className="h-4 w-4 text-gray-600" />
+                        </div>
+                        <span>
+                          Requested by: {request.profiles.first_name} {request.profiles.last_name}
+                        </span>
+                      </div>
+                      
+                      <StartChatButton 
+                        recipientId={request.user_id} 
+                        recipientName={`${request.profiles.first_name}`}
+                        size="sm"
+                      />
                     </div>
                   )}
                 </div>

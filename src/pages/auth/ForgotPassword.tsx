@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Droplet, Mail, AlertCircle, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -20,8 +21,11 @@ const ForgotPassword = () => {
       const { error } = await resetPassword(email);
       if (error) throw error;
       setMessage('Password reset link sent to your email');
+      toast.success('Password reset link sent to your email');
     } catch (error: any) {
+      console.error('Password reset error:', error);
       setError(error.message || 'Failed to reset password');
+      toast.error('Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -66,6 +70,9 @@ const ForgotPassword = () => {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-green-800">{message}</h3>
+                <p className="mt-2 text-sm text-green-700">
+                  Please check your email inbox and spam folder for the password reset link.
+                </p>
               </div>
             </div>
           </div>

@@ -1,13 +1,47 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Droplet, Menu, User, LogOut } from 'lucide-react';
+import { Droplet, Menu, User, LogOut, Bell } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const Navbar = () => {
   const { user, signOut, profile } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
+  const [emergencyCount, setEmergencyCount] = React.useState(0);
+
+  React.useEffect(() => {
+    // Fetch open emergency requests count
+    const fetchEmergencyCount = async () => {
+      const { count, error } = await supabase
+        .from('emergency_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'open');
+      
+      if (!error && count !== null) {
+        setEmergencyCount(count);
+      }
+    };
+
+    fetchEmergencyCount();
+
+    // Set up real-time subscription for emergency requests
+    const subscription = supabase
+      .channel('emergency_changes_nav')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'emergency_requests' 
+      }, () => {
+        fetchEmergencyCount();
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -28,6 +62,15 @@ const Navbar = () => {
           </div>
           
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            {emergencyCount > 0 && (
+              <Link to="/emergency-requests" className="mr-4 relative">
+                <Bell className="h-6 w-6 text-red-600" />
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-100">
+                  <span className="text-xs font-medium text-red-600">{emergencyCount}</span>
+                </span>
+              </Link>
+            )}
+            
             {user && (
               <div className="relative">
                 <button
@@ -71,6 +114,15 @@ const Navbar = () => {
           </div>
           
           <div className="flex items-center sm:hidden">
+            {emergencyCount > 0 && (
+              <Link to="/emergency-requests" className="mr-4 relative">
+                <Bell className="h-6 w-6 text-red-600" />
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-100">
+                  <span className="text-xs font-medium text-red-600">{emergencyCount}</span>
+                </span>
+              </Link>
+            )}
+            
             <button
               type="button"
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none"
@@ -102,10 +154,15 @@ const Navbar = () => {
             </Link>
             <Link
               to="/emergency-requests"
-              className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+              className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 relative"
               onClick={() => setMobileMenuOpen(false)}
             >
               Emergency Requests
+              {emergencyCount > 0 && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-red-100">
+                  <span className="text-xs font-medium text-red-600">{emergencyCount}</span>
+                </span>
+              )}
             </Link>
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">

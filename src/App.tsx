@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import { EmergencyAlertListener } from './components/EmergencyAlert';
+import ChatBot from './components/ChatBot';
 
 // Home Page
 import Home from './pages/Home';
@@ -13,6 +15,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import CompleteProfile from './pages/auth/CompleteProfile';
+import ResetPassword from './pages/auth/ResetPassword';
 
 // User Pages
 import UserDashboard from './pages/user/Dashboard';
@@ -21,6 +24,8 @@ import DonationHistory from './pages/user/DonationHistory';
 import NewDonation from './pages/user/NewDonation';
 import EmergencyRequests from './pages/user/EmergencyRequests';
 import NewEmergencyRequest from './pages/user/NewEmergencyRequest';
+import Rewards from './pages/user/Rewards';
+import Messages from './pages/user/Messages';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -36,6 +41,8 @@ function App() {
     <Router>
       <AuthProvider>
         <Toaster position="top-center" />
+        <EmergencyAlertListener />
+        <ChatBot />
         <Routes>
           {/* Public Home Page */}
           <Route path="/" element={<Home />} />
@@ -44,6 +51,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
@@ -57,18 +65,20 @@ function App() {
               <Route path="/donations/new" element={<NewDonation />} />
               <Route path="/emergency-requests" element={<EmergencyRequests />} />
               <Route path="/emergency-requests/new" element={<NewEmergencyRequest />} />
-              
+              <Route path="/rewards" element={<Rewards />} />
+              <Route path="/messages" element={<Messages />} />
+            
               {/* Admin Routes */}
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<ManageUsers />} />
                 <Route path="/admin/donations" element={<ManageDonations />} />
                 <Route path="/admin/emergency-requests" element={<ManageEmergencyRequests />} />
-                <Route path="/admin/users" element={<ManageUsers />} />
               </Route>
             </Route>
           </Route>
           
-          {/* Redirect to home if no route matches */}
+          {/* Fallback Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
